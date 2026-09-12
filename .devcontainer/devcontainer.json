@@ -2,12 +2,6 @@
   "name": "indonesian-movies-pipeline",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
 
-  "features": {
-    "ghcr.io/devcontainers/features/postgres:1": {
-      "version": "16"
-    }
-  },
-
   "customizations": {
     "vscode": {
       "extensions": [
@@ -20,7 +14,7 @@
     }
   },
 
-  "postCreateCommand": "pip install -r requirements.txt && cp -n .env.example .env",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y postgresql postgresql-contrib && sudo service postgresql start && pip install -r requirements.txt && cp -n .env.example .env",
 
   "forwardPorts": [5432],
 
