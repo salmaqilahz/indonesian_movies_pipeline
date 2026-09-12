@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Staging / raw data (regenerable, shouldn't bloat the repo)
+staging_data/
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+.vscode/

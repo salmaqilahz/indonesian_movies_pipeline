@@ -1,0 +1,28 @@
+{
+  "name": "indonesian-movies-pipeline",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+
+  "features": {
+    "ghcr.io/devcontainers/features/postgres:1": {
+      "version": "16"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+
+  "postCreateCommand": "pip install -r requirements.txt && cp -n .env.example .env",
+
+  "forwardPorts": [5432],
+
+  "remoteUser": "vscode"
+}
