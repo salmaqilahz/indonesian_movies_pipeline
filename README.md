@@ -113,5 +113,5 @@ Documented here rather than silently patched, since surfacing this kind of thing
 
 - Some Wikidata items carry more than one IMDb or TMDb ID (e.g. a title with two different IMDb IDs attached) — a genuine upstream data error, not a pipeline bug.
 - TMDb's `origin_country` filter includes international co-productions, not only Indonesian-language content.
-- IMDb has no "country of origin" field — only release regions, which is a materially different concept.
+- IMDb has no "country of origin" field — only release regions, which is a materially different concept. Concretely, this means the IMDb extraction currently includes genuinely foreign films that simply had an Indonesian theatrical release — e.g. Big Boss of Shanghai, a Hong Kong production, gets pulled in purely because it has an ID entry in title.akas. This isn't a bug in the extractor; it's expected to be resolved during cross-source validation, once these titles are checked against Wikidata's and TMDb's actual country-of-origin fields, rather than guessed at from IMDb data alone.
 - IMDb's title-type coverage includes categories (video games, shorts) that fall outside this project's scope and are explicitly filtered out, with counts logged.
