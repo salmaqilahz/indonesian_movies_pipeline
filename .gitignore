@@ -10,5 +10,8 @@ __pycache__/
 *.pyc
 .venv/
 
+# Jupyter
+.ipynb_checkpoints/
+
 # Editor
 .vscode/
