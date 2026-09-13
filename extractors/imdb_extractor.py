@@ -25,6 +25,7 @@ import requests
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config.settings import IMDB_DATA_DIR, STAGING_DIR
+from staging.stage_writer import write_raw_json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,6 +33,11 @@ logger = logging.getLogger(__name__)
 IMDB_BASE_URL = "https://datasets.imdbws.com"
 RELEASE_REGION = "ID"
 CHUNK_SIZE = 200_000  # rows per chunk when reading the large basics file
+
+# Only keep IMDb title types that map cleanly onto our schema's content_type.
+# Everything else (short, video, tvMovie, tvSpecial, tvShort, videoGame, etc.)
+# is a deliberate scope decision, not an oversight — logged below so it's visible.
+ALLOWED_TITLE_TYPES = {"movie", "tvSeries", "tvMiniSeries", "tvEpisode"}
 
 
 def download_dataset(filename: str, force: bool = False) -> Path:
@@ -107,26 +113,38 @@ def extract_basics_for_ids(title_ids: set[str]) -> list[dict]:
 
 
 def save_to_staging(records: list[dict]) -> Path:
-    """Save the filtered (but otherwise untouched) IMDb records to staging."""
-    import json
-    from datetime import datetime, timezone
+    """Save the filtered (but otherwise untouched) IMDb records via the shared staging writer."""
+    return write_raw_json(records, source="imdb", subtype="imdb", staging_dir=STAGING_DIR)
 
-    out_dir = STAGING_DIR / "imdb"
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = out_dir / f"imdb_raw_{timestamp}.json"
+def filter_to_allowed_types(records: list[dict]) -> list[dict]:
+    """
+    Keep only title types that map cleanly onto our schema's content_type.
+    Logs what's being dropped and why, so this scope decision stays visible
+    rather than silently discarding data.
+    """
+    dropped_counts: dict[str, int] = {}
+    kept = []
 
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+    for record in records:
+        title_type = record.get("titleType", "?")
+        if title_type in ALLOWED_TITLE_TYPES:
+            kept.append(record)
+        else:
+            dropped_counts[title_type] = dropped_counts.get(title_type, 0) + 1
 
-    logger.info("Saved %d raw records to %s", len(records), out_path)
-    return out_path
+    total_dropped = sum(dropped_counts.values())
+    logger.info("Kept %d records matching allowed types %s", len(kept), ALLOWED_TITLE_TYPES)
+    if total_dropped:
+        logger.info("Dropped %d records outside scope: %s", total_dropped, dropped_counts)
+
+    return kept
 
 
 def main():
     title_ids = find_indonesian_title_ids()
     records = extract_basics_for_ids(title_ids)
+    records = filter_to_allowed_types(records)
     save_to_staging(records)
 
 

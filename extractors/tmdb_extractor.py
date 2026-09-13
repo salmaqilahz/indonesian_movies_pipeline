@@ -6,11 +6,9 @@ TMDb's discover endpoints, and save them untouched into staging.
 No cleaning, no matching against Wikidata — that happens later.
 """
 
-import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -23,6 +21,7 @@ from config.settings import (
     TMDB_API_KEY,
     TMDB_BASE_URL,
 )
+from staging.stage_writer import write_raw_json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -96,18 +95,8 @@ def extract_tv_shows() -> list[dict]:
 
 
 def save_to_staging(records: list[dict], subtype: str) -> Path:
-    """Save raw TMDb results untouched, timestamped, into staging_data/tmdb/."""
-    out_dir = STAGING_DIR / "tmdb"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = out_dir / f"tmdb_{subtype}_raw_{timestamp}.json"
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
-
-    logger.info("Saved %d raw %s records to %s", len(records), subtype, out_path)
-    return out_path
+    """Save raw TMDb results untouched into staging, via the shared staging writer."""
+    return write_raw_json(records, source="tmdb", subtype=subtype, staging_dir=STAGING_DIR)
 
 
 def main():

@@ -6,10 +6,8 @@ via SPARQL, and save it untouched into the staging area. No cleaning,
 no matching, no transforming — that happens in later pipeline stages.
 """
 
-import json
 import logging
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 from SPARQLWrapper import JSON, SPARQLWrapper
@@ -23,6 +21,7 @@ from config.settings import (
     WIKIDATA_SPARQL_ENDPOINT,
     WIKIDATA_USER_AGENT,
 )
+from staging.stage_writer import write_raw_json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -79,18 +78,8 @@ def extract_indonesian_titles() -> list[dict]:
 
 
 def save_to_staging(records: list[dict]) -> Path:
-    """Save raw Wikidata results untouched, timestamped, into staging_data/wikidata/."""
-    out_dir = STAGING_DIR / "wikidata"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = out_dir / f"wikidata_raw_{timestamp}.json"
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
-
-    logger.info("Saved %d raw records to %s", len(records), out_path)
-    return out_path
+    """Save raw Wikidata results untouched into staging, via the shared staging writer."""
+    return write_raw_json(records, source="wikidata", subtype="wikidata", staging_dir=STAGING_DIR)
 
 
 def main():
