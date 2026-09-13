@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # We ask Wikidata to also give us the IMDb ID (P345) and TMDb ID (P4947)
 # directly, since that's our strongest signal for matching later.
 INDONESIA_FILMS_QUERY = """
-SELECT ?item ?itemLabel ?imdbId ?tmdbId ?publicationDate ?instanceOfLabel WHERE {
+SELECT DISTINCT ?item ?itemLabel ?imdbId ?tmdbId ?publicationDate ?instanceOfLabel WHERE {
   ?item wdt:P495 wd:Q252 .            # country of origin = Indonesia
   ?item wdt:P31 ?instanceOf .
   VALUES ?instanceOf { wd:Q11424 wd:Q5398426 wd:Q526877 wd:Q1259759 }  # film / TV series / web series / miniseries
