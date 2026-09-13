@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS titles CASCADE;
 CREATE TABLE titles (
     title_id        BIGSERIAL PRIMARY KEY,
     content_type    VARCHAR(20) NOT NULL
-                    CHECK (content_type IN ('movie', 'web_series', 'tv_series', 'episode')),
+                    CHECK (content_type IN ('movie', 'web_series', 'tv_series', 'mini_series', 'episode')),
     primary_title   TEXT NOT NULL,
     original_title  TEXT,
     release_year    SMALLINT,
