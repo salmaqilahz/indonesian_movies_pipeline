@@ -4,3 +4,5 @@ requests==2.32.3
 pandas==2.2.2
 psycopg2-binary==2.9.9
 rapidfuzz==3.9.6
+jupyter==1.0.0
+ipykernel==6.29.4
