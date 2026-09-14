@@ -102,12 +102,25 @@ Each saves raw, timestamped JSON into `staging_data/<source>/` (gitignored — r
 - [x] IMDb extractor (bulk dataset dumps, chunked processing, filtered to Indonesian release region and in-scope title types)
 - [x] Exploratory data quality checks per source (see `notebooks/`)
 - [x] Raw landing tables in PostgreSQL (`raw_wikidata`, `raw_tmdb`, `raw_imdb`), loaded from staging
-- [ ] Cross-source matching (exact ID → year+type → fuzzy fallback)
+- [x] Cross-source matching (exact ID → year+type → fuzzy fallback) — see results below
 - [ ] Cross-source validation and confidence scoring
 - [ ] Idempotent PostgreSQL loading
 - [ ] Human review queue for flagged discrepancies
 - [ ] QuickStatements export for approved Wikidata corrections
 - [ ] Cleanup script for `staging_data/` — currently every extractor run keeps a new timestamped file forever; needs a retention policy (e.g. keep last N runs per source)
+
+## Matching results
+
+Wikidata's ~5,211 unique Indonesian titles, matched against the TMDb and IMDb extractions across three progressively more cautious layers — each one only catching what the previous layer correctly declined to guess at:
+
+| Layer | Method | Titles matched |
+|---|---|---|
+| 1 | Exact IMDb/TMDb ID (as claimed by Wikidata) | ~2,990 |
+| 2 | Normalized title + release year (±1) + compatible content type | ~179 |
+| 3 | Fuzzy title similarity (rapidfuzz), same year/type constraints | ~40 |
+| — | **Total matched** | **3,164 (61%)** |
+
+The steep drop-off from Layer 1 to Layer 3 is expected, not a weakness: each layer is deliberately more conservative than the last, so most of the "easy" matches get caught early, leaving progressively rarer edge cases for the next layer. The remaining 2,047 titles (39%) genuinely don't appear in this project's TMDb/IMDb extractions under any title/year/type combination tried — likely a mix of titles missing from those sources' Indonesian coverage, and titles where Wikidata's own data (title, year, or category) is itself inaccurate, which is exactly the kind of gap this project exists to surface. A handful of additional cases (title+year agreed but type didn't, or two fuzzy candidates scored too close to call) are flagged in `match_candidates` for manual review rather than silently matched or silently dropped.
 
 ## Known data quality findings so far
 
@@ -117,4 +130,3 @@ Documented here rather than silently patched, since surfacing this kind of thing
 - TMDb's `origin_country` filter includes international co-productions, not only Indonesian-language content.
 - IMDb has no "country of origin" field, only release regions — so the extraction includes genuinely foreign films (e.g. Hong Kong's *Big Boss of Shanghai*) that simply had an Indonesian theatrical release. Left for cross-source validation to resolve, not patched with guesswork.
 - IMDb's title-type coverage includes categories (video games, shorts) outside this project's scope, filtered out with counts logged.
-- Of Wikidata's claimed external IDs, only ~96% of IMDb IDs and ~92% of TMDb IDs actually turn up in this project's own IMDb/TMDb extractions — the rest fell outside scope on one side (e.g. a different content type, or a disputed country of origin). A useful baseline before matching begins.
