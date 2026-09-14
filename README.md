@@ -122,11 +122,13 @@ Wikidata's ~5,211 unique Indonesian titles, matched against the TMDb and IMDb ex
 
 The steep drop-off from Layer 1 to Layer 3 is expected, not a weakness: each layer is deliberately more conservative than the last, so most of the "easy" matches get caught early, leaving progressively rarer edge cases for the next layer. The remaining 2,047 titles (39%) genuinely don't appear in this project's TMDb/IMDb extractions under any title/year/type combination tried — likely a mix of titles missing from those sources' Indonesian coverage, and titles where Wikidata's own data (title, year, or category) is itself inaccurate, which is exactly the kind of gap this project exists to surface. A handful of additional cases (title+year agreed but type didn't, or two fuzzy candidates scored too close to call) are flagged in `match_candidates` for manual review rather than silently matched or silently dropped.
 
+Beyond matching, a release-year cross-check across all matched titles found 338 of 4,854 pairs (7%) disagree — 77% of those are a harmless 1-year gap (festival vs. theatrical release dates), but a handful disagree by 5+ years, including one pair off by 53 years. Some of these trace back to the duplicate-publication-date issue noted below rather than being independent errors, which is itself a useful confirmation that fixing that issue would meaningfully improve validation accuracy.
+
 ## Known data quality findings so far
 
 Documented here rather than silently patched, since surfacing this kind of thing is the whole point of the project:
 
-- Some Wikidata items carry more than one IMDb or TMDb ID (e.g. a title with two different IMDb IDs attached) — a genuine upstream data error, not a pipeline bug.
+- Some Wikidata items carry more than one IMDb or TMDb ID (e.g. a title with two different IMDb IDs attached), or more than one publication date (e.g. *Angkara Murka* carrying both 1972 and 2025), left unresolved for now (see `matching/` design notes) — this is confirmed to be producing some spurious results in year validation, a useful signal that fixing it later is worthwhile.
 - TMDb's `origin_country` filter includes international co-productions, not only Indonesian-language content.
 - IMDb has no "country of origin" field, only release regions — so the extraction includes genuinely foreign films (e.g. Hong Kong's *Big Boss of Shanghai*) that simply had an Indonesian theatrical release. Left for cross-source validation to resolve, not patched with guesswork.
 - IMDb's title-type coverage includes categories (video games, shorts) outside this project's scope, filtered out with counts logged.
