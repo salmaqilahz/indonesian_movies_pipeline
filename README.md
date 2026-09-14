@@ -101,6 +101,7 @@ Each saves raw, timestamped JSON into `staging_data/<source>/` (gitignored — r
 - [x] TMDb extractor (paginated discover API, movies + TV)
 - [x] IMDb extractor (bulk dataset dumps, chunked processing, filtered to Indonesian release region and in-scope title types)
 - [x] Exploratory data quality checks per source (see `notebooks/`)
+- [x] Raw landing tables in PostgreSQL (`raw_wikidata`, `raw_tmdb`, `raw_imdb`), loaded from staging
 - [ ] Cross-source matching (exact ID → year+type → fuzzy fallback)
 - [ ] Cross-source validation and confidence scoring
 - [ ] Idempotent PostgreSQL loading
@@ -114,5 +115,6 @@ Documented here rather than silently patched, since surfacing this kind of thing
 
 - Some Wikidata items carry more than one IMDb or TMDb ID (e.g. a title with two different IMDb IDs attached) — a genuine upstream data error, not a pipeline bug.
 - TMDb's `origin_country` filter includes international co-productions, not only Indonesian-language content.
-- IMDb has no "country of origin" field — only release regions, which is a materially different concept. Concretely, this means the IMDb extraction currently includes genuinely foreign films that simply had an Indonesian theatrical release — e.g. *Big Boss of Shanghai*, a Hong Kong production, gets pulled in purely because it has an `ID` entry in `title.akas`. This isn't a bug in the extractor; it's expected to be resolved during cross-source validation, once these titles are checked against Wikidata's and TMDb's actual country-of-origin fields, rather than guessed at from IMDb data alone.
-- IMDb's title-type coverage includes categories (video games, shorts) that fall outside this project's scope and are explicitly filtered out, with counts logged.
+- IMDb has no "country of origin" field, only release regions — so the extraction includes genuinely foreign films (e.g. Hong Kong's *Big Boss of Shanghai*) that simply had an Indonesian theatrical release. Left for cross-source validation to resolve, not patched with guesswork.
+- IMDb's title-type coverage includes categories (video games, shorts) outside this project's scope, filtered out with counts logged.
+- Of Wikidata's claimed external IDs, only ~96% of IMDb IDs and ~92% of TMDb IDs actually turn up in this project's own IMDb/TMDb extractions — the rest fell outside scope on one side (e.g. a different content type, or a disputed country of origin). A useful baseline before matching begins.
