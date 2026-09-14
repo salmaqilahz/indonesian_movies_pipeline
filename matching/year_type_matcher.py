@@ -66,9 +66,17 @@ def extract_year(date_str: str) -> int | None:
 
 
 def get_already_matched_items(conn) -> set[str]:
-    """Wikidata items already resolved in Layer 1 (exact match or conflict) — skip these."""
+    """
+    Wikidata items with a genuine match already — skip these.
+    Deliberately excludes conflict-only rows: a conflict flags unreliable
+    ID data, but the title/year data may still be fine, so those items
+    still deserve a title+year matching attempt here.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT DISTINCT wikidata_item FROM match_candidates WHERE wikidata_item IS NOT NULL")
+        cur.execute("""
+            SELECT DISTINCT wikidata_item FROM match_candidates
+            WHERE wikidata_item IS NOT NULL AND match_type != 'conflict'
+        """)
         return {row[0] for row in cur.fetchall()}
 
 
@@ -111,19 +119,29 @@ def build_tmdb_index(conn) -> dict[str, list[tuple]]:
 def _find_unique_match(candidates: list[tuple], target_year: int | None, allowed_types: set[str]):
     """
     Among same-title candidates, keep only those within +/-1 year and a
-    compatible type. Return the single match, or None if zero or more
-    than one candidate qualifies (ambiguous — skipped, not guessed).
+    compatible type. Returns (match_or_None, note_or_None).
+
+    note is set when a title+year match existed but got blocked by a
+    type disagreement or ambiguity — worth surfacing as a conflict for
+    review, rather than silently dropping it like a plain non-match.
     """
     if target_year is None:
-        return None  # can't safely narrow down without a year to compare
+        return None, None  # can't safely narrow down without a year to compare
 
-    qualifying = [
-        c for c in candidates
-        if c[1] is not None and abs(c[1] - target_year) <= 1 and c[2] in allowed_types
-    ]
+    year_matches = [c for c in candidates if c[1] is not None and abs(c[1] - target_year) <= 1]
+    if not year_matches:
+        return None, None  # no title+year agreement at all — ordinary non-match, nothing to flag
+
+    qualifying = [c for c in year_matches if c[2] in allowed_types]
+
     if len(qualifying) == 1:
-        return qualifying[0]
-    return None  # zero or ambiguous (>1) — both are skipped, not guessed at
+        return qualifying[0], None
+
+    if len(qualifying) == 0:
+        found_types = sorted({c[2] for c in year_matches})
+        return None, f"Title and year matched, but type disagreed — expected one of {sorted(allowed_types)}, found {found_types}"
+
+    return None, f"Title and year matched {len(qualifying)} candidates of a compatible type — ambiguous, skipped"
 
 
 def main():
@@ -137,6 +155,7 @@ def main():
 
         imdb_matches = []
         tmdb_matches = []
+        type_conflicts = []  # (wikidata_item, note)
 
         for wikidata_item, item_label, instance_of_label, publication_date in unmatched_rows:
             norm_title = normalize_title(item_label)
@@ -146,15 +165,19 @@ def main():
 
             imdb_candidates = imdb_index.get(norm_title, [])
             allowed_imdb_types = WIKIDATA_TO_IMDB_TYPES.get(instance_of_label, set())
-            imdb_match = _find_unique_match(imdb_candidates, year, allowed_imdb_types)
+            imdb_match, imdb_note = _find_unique_match(imdb_candidates, year, allowed_imdb_types)
             if imdb_match:
                 imdb_matches.append((wikidata_item, imdb_match[0]))
+            elif imdb_note:
+                type_conflicts.append((wikidata_item, f"[IMDb] {imdb_note}"))
 
             tmdb_candidates = tmdb_index.get(norm_title, [])
             allowed_tmdb_types = WIKIDATA_TO_TMDB_TYPES.get(instance_of_label, set())
-            tmdb_match = _find_unique_match(tmdb_candidates, year, allowed_tmdb_types)
+            tmdb_match, tmdb_note = _find_unique_match(tmdb_candidates, year, allowed_tmdb_types)
             if tmdb_match:
                 tmdb_matches.append((wikidata_item, str(tmdb_match[0])))
+            elif tmdb_note:
+                type_conflicts.append((wikidata_item, f"[TMDb] {tmdb_note}"))
 
         with conn.cursor() as cur:
             cur.executemany(
@@ -171,9 +194,20 @@ def main():
                 """,
                 tmdb_matches,
             )
+            cur.executemany(
+                """
+                INSERT INTO match_candidates (wikidata_item, match_type, matched_value, confidence, note)
+                VALUES (%s, 'conflict', NULL, 'manual', %s)
+                """,
+                type_conflicts,
+            )
         conn.commit()
 
-        logger.info("Layer 2: matched %d items to IMDb, %d items to TMDb via title+year+type", len(imdb_matches), len(tmdb_matches))
+        logger.info(
+            "Layer 2: matched %d items to IMDb, %d items to TMDb via title+year+type; "
+            "flagged %d title+year matches blocked by type disagreement/ambiguity",
+            len(imdb_matches), len(tmdb_matches), len(type_conflicts),
+        )
 
 
 if __name__ == "__main__":
