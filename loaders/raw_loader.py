@@ -14,6 +14,7 @@ left for the (not yet built) matching stage.
 
 import json
 import logging
+import math
 import sys
 from pathlib import Path
 
@@ -40,6 +41,23 @@ def _latest_file(source: str, pattern: str) -> Path:
     if not matches:
         raise FileNotFoundError(f"No staging files matching {pattern} in {STAGING_DIR / source}")
     return matches[-1]
+
+
+def _clean_nan(record: dict) -> dict:
+    """
+    Replace pandas-style float NaN with proper None/null.
+
+    Pandas represents missing values in numeric-ish columns as
+    float('nan'), which json.dumps happily writes as the literal
+    token NaN — technically invalid JSON that Postgres's JSONB
+    correctly rejects. This only affects records that passed through
+    pandas (currently just the IMDb extractor), but is safe to apply
+    everywhere.
+    """
+    return {
+        k: (None if isinstance(v, float) and math.isnan(v) else v)
+        for k, v in record.items()
+    }
 
 
 def load_wikidata_raw():
@@ -128,6 +146,7 @@ def load_imdb_raw():
 
     rows = []
     for r in records:
+        r = _clean_nan(r)
         rows.append((
             r.get("tconst"),
             r.get("titleType"),
